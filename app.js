@@ -5,7 +5,8 @@ const app = express();
 const bodyParser=require("body-parser");
 const ejs=require("ejs");
 const mongoose=require("mongoose");
-const encrypt= require("mongoose-encryption");
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 app.set('views engine', 'ejs');
 app.use(bodyParser.urlencoded({extended:true}));
@@ -27,28 +28,32 @@ app.get("/login", function(req, res){
 });
 
 
-app.get("/", function(req, res){
-  res.render("home.ejs");
+app.get("/logout", function(req, res){
+  res.redirect("/");
 });
+
 const userSchema=new mongoose.Schema({
   email:String,
   password:String
 });
 
-userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields:["password"]});
+
 const User=mongoose.model("User", userSchema);
 
 app.post("/register", function(req, res){
-  const newUser= new User({
-    email:req.body.username,
-    password:req.body.password
-  });
-  newUser.save(function(err){
-    if(err){
-      console.log(err);
-    }else{
-      res.render("secrets.ejs");
-    }
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+
+    const newUser= new User({
+      email:req.body.username,
+      password:hash
+    });
+    newUser.save(function(err){
+      if(err){
+        console.log(err);
+      }else{
+        res.render("secrets.ejs");
+      }
+    });
   });
 });
 
@@ -61,9 +66,11 @@ app.post("/register", function(req, res){
        console.log(err);
      }else{
        if(foundUser){
-         if(foundUser.password === password){
-           res.render("secrets.ejs");
-         }
+         bcrypt.compare(password, foundUser.password, function(err, result) {
+     if(result === true){
+        res.render("secrets.ejs");
+     }
+ });
        }
      }
    });
